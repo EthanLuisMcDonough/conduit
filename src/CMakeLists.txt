@@ -45,7 +45,37 @@ option(CONDUIT_ENABLE_TESTS "Build conduit tests" ON)
 # if ENABLE_FORTRAN == ON
 ################################
 if(ENABLE_FORTRAN)
-    enable_language(Fortran)
+
+    FILE(GLOB F_SRCS "*.f90" "*.F90")
+    SET(outFiles)
+    FOREACH(SRC ${F_SRCS})
+        SET(OUTPUT_MLIR_NAME "${SRC}.mlir")
+        SET(OUTPUT_IR_NAME "${SRC}.ll")
+        SET(OUTPUT_COBJ_NAME "${SRC}_c.o")
+        SET(OUTPUT_FILE_NAME "${SRC}.o")
+
+        ADD_CUSTOM_COMMAND(
+            OUTPUT "${OUTPUT_MLIR_NAME}"
+            COMMAND bbc ${SRC} -o ${OUTPUT_MLIR_NAME}
+            DEPENDS "${SRC}")
+        ADD_CUSTOM_COMMAND(
+            OUTPUT "${OUTPUT_IR_NAME}"
+            COMMAND tco ${OUTPUT_MLIR_NAME} -o ${OUTPUT_IR_NAME}
+            DEPENDS "${OUTPUT_MLIR_NAME}")
+        ADD_CUSTOM_COMMAND(
+            OUTPUT "${OUTPUT_COBJ_NAME}"
+            COMMAND clang -c ${OUTPUT_IR_NAME} -o ${OUTPUT_COBJ_NAME}
+            DEPENDS "${OUTPUT_IR_NAME}")
+        ADD_CUSTOM_COMMAND(
+            OUTPUT "${OUTPUT_FILE_NAME}"
+            COMMAND flang-new  ${OUTPUT_COBJ_NAME} -o ${OUTPUT_FILE_NAME}
+            DEPENDS "${OUTPUT_COBJ_NAME}")
+
+        SET(outFiles ${outFiles} "${OUTPUT_FILE_NAME}")
+    ENDFOREACH(SRC)
+    ADD_CUSTOM_TARGET(build_fort ALL DEPENDS ${outFiles})
+    
+    #enable_language(Fortran)
 endif()
 
 # don't use BLT's all warnings feature
